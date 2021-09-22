@@ -1,0 +1,123 @@
+---
+title: "Extract Scores"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(readxl)
+library(stringr)
+library(dplyr)
+```
+
+```{r}
+completed_scores <- list.files(path = "../ti_scoring_data", pattern = "KPMP TI Descriptor Scoring")[-5]
+study_ids <- str_sub(completed_scores, 1, 8)
+score_ids <- str_replace(completed_scores, "_KPMP TI Descriptor Scoring", "")
+score_ids <- str_replace(score_ids, ".xlsx", "")
+
+df <- data.frame()
+for(i in 1:length(completed_scores)){
+  
+  data <- read_xlsx(paste0("../ti_scoring_data/", completed_scores[i]), skip = 3, col_names = TRUE)
+  data <- data[, 1:(grep("END", names(data))[1]-1)]
+  n_patches <- ncol(data) - 1
+  data_cmpt <- data[1:2, ]
+  
+  data_scores <- data[3:(nrow(data)-1), ] 
+
+  data_scores <- data_scores %>%
+    filter(rowSums(is.na(data_scores)) != (ncol(data_scores) - 1))
+  data_scores <- cbind(
+    data.frame(Domain = c(rep("Renal Tubular Atrophy", 3), 
+                          rep("Tubular Cell Injury (other than atrophy)", 14), 
+                          rep("Tubulitis", 2),
+                          rep("Abnormal Tubular Luminal Morphology", 3),
+                          rep("Intratubular Casts", 10),
+                          rep("Tubular basement membrane Morphology", 2),
+                          rep("Extracellular matrix", 2),
+                          rep("Inflammation", 6))),
+    data_scores)
+  names(data_scores)[2] = "Descriptor"
+
+  data_scores[, -c(1:2)] <- apply(data_scores[, -c(1:2)], 2, function(x) as.integer(x))
+
+  data_scores$indiv_score <- rowMeans(data_scores[,3:(n_patches+2)]) * 100
+  domain_score <- data_scores %>% group_by(Domain) %>% 
+    summarise(Score = mean(indiv_score))
+  total_score <- mean(data_scores$indiv_score)
+  dvst_score <- sum(data_scores$indiv_score > 0) / nrow(data_scores) * 100
+  
+  tmp <- data.frame(
+    
+    completed_score_id = score_ids[i],
+    study_id = study_ids[i],
+    
+    ttl = total_score,
+    
+    dm_rta = domain_score[domain_score$Domain == "Renal Tubular Atrophy", "Score", drop = TRUE],
+    dm_tci = domain_score[domain_score$Domain == "Tubular Cell Injury (other than atrophy)", "Score", drop = TRUE],
+    dm_tblt = domain_score[domain_score$Domain == "Tubulitis", "Score", drop = TRUE],
+    dm_atlm = domain_score[domain_score$Domain == "Abnormal Tubular Luminal Morphology", "Score", drop = TRUE],
+    dm_ic = domain_score[domain_score$Domain == "Intratubular Casts", "Score", drop = TRUE],
+    dm_tbmm = domain_score[domain_score$Domain == "Tubular basement membrane Morphology", "Score", drop = TRUE],
+    dm_em = domain_score[domain_score$Domain == "Extracellular matrix", "Score", drop = TRUE],
+    dm_inf = domain_score[domain_score$Domain == "Inflammation", "Score", drop = TRUE],
+    
+    idv_rta_classic = data_scores[data_scores$Descriptor == "Classic/Common-type", "indiv_score", drop = TRUE],
+    idv_rta_thyroid = data_scores[data_scores$Descriptor == "Thyroidization-type", "indiv_score", drop = TRUE],
+    idv_rta_endo = data_scores[data_scores$Descriptor == "Endocrine-type", "indiv_score", drop = TRUE],
+    
+    idv_tci_csimpl = data_scores[data_scores$Descriptor == "Cell Simplification", "indiv_score", drop = TRUE],
+    idv_tci_cslough = data_scores[data_scores$Descriptor == "Cell Sloughing", "indiv_score", drop = TRUE],
+    idv_tci_lossbb = data_scores[data_scores$Descriptor == "Loss of brush border", "indiv_score", drop = TRUE],
+    idv_tci_cnecr = data_scores[data_scores$Descriptor == "Cell necrosis", "indiv_score", drop = TRUE],
+    idv_tci_cappt = data_scores[data_scores$Descriptor == "Cell apoptosis", "indiv_score", drop = TRUE],
+    idv_tci_cdtch = data_scores[data_scores$Descriptor == "Cell detachment", "indiv_score", drop = TRUE],
+    idv_tci_tbmd = data_scores[data_scores$Descriptor == "TBM denudation", "indiv_score", drop = TRUE],
+    idv_tci_cmit = data_scores[data_scores$Descriptor == "Cell Mitosis", "indiv_score", drop = TRUE],
+    idv_tci_ccv = data_scores[data_scores$Descriptor == "Cell cytoplasmic vacuolization", "indiv_score", drop = TRUE],
+    idv_tci_bac = data_scores[data_scores$Descriptor == "Blebbing of apical cytoplasm", "indiv_score", drop = TRUE],
+    idv_tci_chd = data_scores[data_scores$Descriptor == "Cell hyaline droplets", "indiv_score", drop = TRUE],
+    idv_tci_pd = data_scores[data_scores$Descriptor == "Pigmented droplets", "indiv_score", drop = TRUE],
+    idv_tci_nh = data_scores[data_scores$Descriptor == "Nuclear Hyperchromasia", "indiv_score", drop = TRUE],
+    idv_tci_vcc = data_scores[data_scores$Descriptor == "Viral cytopathic changes", "indiv_score", drop = TRUE],
+    
+    idv_tblt_lymph = data_scores[data_scores$Descriptor == "Lymphocytic", "indiv_score", drop = TRUE],
+    idv_tblt_ntr = data_scores[data_scores$Descriptor == "Neutrophilic", "indiv_score", drop = TRUE],
+    
+    idv_atlm_ld = data_scores[data_scores$Descriptor == "Luminal dilation", "indiv_score", drop = TRUE],
+    idv_atlm_mcc = data_scores[data_scores$Descriptor == "Microcystic change", "indiv_score", drop = TRUE],
+    idv_atlm_tc = data_scores[data_scores$Descriptor == "Tubular cysts", "indiv_score", drop = TRUE],
+    
+    idv_ic_rbc = data_scores[data_scores$Descriptor == "RBCs", "indiv_score", drop = TRUE],
+    idv_ic_cec = data_scores[data_scores$Descriptor == "(Cellular) Erythrocyte casts", "indiv_score", drop = TRUE],
+    idv_ic_clc = data_scores[data_scores$Descriptor == "(Cellular) Leukocyte casts", "indiv_score", drop = TRUE],
+    idv_ic_cecc = data_scores[data_scores$Descriptor == "(Cellular) Epithelial cell casts", "indiv_score", drop = TRUE],
+    idv_ic_athc = data_scores[data_scores$Descriptor == "(Acellular) Tamm-Horsfall casts", "indiv_score", drop = TRUE],
+    idv_ic_ahc = data_scores[data_scores$Descriptor == "(Acellular) Hyaline casts", "indiv_score", drop = TRUE],
+    idv_ic_acc = data_scores[data_scores$Descriptor == "Acellular casts crystals", "indiv_score", drop = TRUE],
+    idv_ic_pc = data_scores[data_scores$Descriptor == "(Acellular) Pigmented casts", "indiv_score", drop = TRUE],
+    idv_ic_lcc = data_scores[data_scores$Descriptor == "(Acellular) Light-chain casts", "indiv_score", drop = TRUE],
+    idv_ic_ric = data_scores[data_scores$Descriptor == "Renal intratubular casts [NOS]", "indiv_score", drop = TRUE],
+    
+    idv_tbmm_tbmr = data_scores[data_scores$Descriptor == "Tubular Basement membrane rupture", "indiv_score", drop = TRUE],
+    idv_tbmm_tbml = data_scores[data_scores$Descriptor == "Tubular basement membrane lamellation", "indiv_score", drop = TRUE],
+    
+    idv_em_if = data_scores[data_scores$Descriptor == "Interstitial fibrosis", "indiv_score", drop = TRUE],
+    idv_em_ie = data_scores[data_scores$Descriptor == "Interstitial edema", "indiv_score", drop = TRUE],
+    
+    idv_inf_lymp = data_scores[data_scores$Descriptor == "Lymphocytes", "indiv_score", drop = TRUE],
+    idv_inf_plasma = data_scores[data_scores$Descriptor == "Plasma cells", "indiv_score", drop = TRUE],
+    idv_inf_eosin = data_scores[data_scores$Descriptor == "Eosinophils", "indiv_score", drop = TRUE],
+    idv_inf_neutr = data_scores[data_scores$Descriptor == "Neutrophils", "indiv_score", drop = TRUE],
+    idv_inf_granul = data_scores[data_scores$Descriptor == "Granulomas", "indiv_score", drop = TRUE],
+    idv_inf_fc = data_scores[data_scores$Descriptor == "Foam cells", "indiv_score", drop = TRUE],
+    
+    dvst = dvst_score
+      )
+  
+  df <- rbind(df, tmp)
+
+}
+```
