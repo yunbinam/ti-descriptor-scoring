@@ -1,0 +1,172 @@
+---
+title: "Compartment Variable"
+geometry: left = 1.3cm, right = 1.3cm, top = 1.5cm, bottom = 1.5cm
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(readxl)
+library(openxlsx)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(tidyverse)
+library(kableExtra)
+library(psych)
+library(irr)
+library(ggplot2)
+library(data.table)
+library(plyr)
+
+options(digits = 4)
+rm(list=ls())
+```
+
+![Received Descriptor Scoring for Pilot 5. Green is received, white is outstanding, and grey is not expected.](../ti_scoring_data/completed_scores.png)
+
+```{r, include = FALSE}
+completed_scores <- list.files(path = "../ti_scoring_data/Completed Scores", pattern = "KPMP TI Descriptor Scoring")
+study_ids <- str_sub(completed_scores, 1, 8)
+scorer_ids <- str_sub(completed_scores, 43, 43)
+scorer_ids <- str_replace(scorer_ids, ".xlsx", "")
+
+tmp <- data.frame(
+  file_id = completed_scores,
+  study_id = study_ids,
+  scorer_id = scorer_ids
+)
+
+tmp_A = tmp %>% filter(scorer_id %in% c("A","B","C","D","E"))
+
+samples_A = unique(tmp_A$study_id)
+n_samples_A = length(samples_A)
+# samples_A = tmp %>% filter(scorer_id %in% c("A","B","C","D","E"))
+# samples_F = tmp %>% filter(scorer_id %in% c("F","H","I"))
+# samples_K = tmp %>% filter(scorer_id %in% c("K","L","M","N"))
+
+scorers_A = unique(tmp_A$scorer_id)
+n_scorers_A = length(scorers_A)
+
+#cmpt_A <- setNames(data.frame(matrix(ncol = n_scorers, nrow = 0)), scorers)
+cmpt_A <- data.frame()
+grid_3011033 <- read_xlsx("../ti_scoring_data/Completed Scores/30-11033_KPMP TI Descriptor Scoring_ScorerA.xlsx", skip = 3, col_names = TRUE)
+grid_3011033 <- grid_3011033[, 1:(grep("END", names(grid_3011033))[1]-1)]
+grid_3011033 <- names(grid_3011033[2, -1])
+
+for(i in 1:n_samples_A){
+  
+  files = tmp_A[tmp_A$study_id == samples_A[i],]
+  n_files = nrow(files)
+
+  df_cmpt <- data.frame()
+  
+  for(j in 1:n_files){
+    data <- read_xlsx(paste0("../ti_scoring_data/Completed Scores/", files$file[j]), skip = 3, col_names = TRUE)
+    data <- data[, 1:(grep("END", names(data))[1]-1)]
+    data_cmpt <- data[2, -1]
+    rownames(data_cmpt) = files$scorer_id[j]
+    if(files$study_id == "30-11033"){
+      colnames(data_cmpt) = paste0(files$study_id[j], "_", grid_3011033)
+    } else{
+      colnames(data_cmpt) = paste0(files$study_id[j], "_", colnames(data_cmpt))
+    }
+    
+    df_cmpt <- rbind(df_cmpt, data_cmpt)
+  }
+  
+  tdf_cmpt <- transpose(df_cmpt)
+  rownames(tdf_cmpt) <- colnames(df_cmpt)
+  colnames(tdf_cmpt) <- rownames(df_cmpt)
+  
+  cmpt_A <- rbind(cmpt_A, tdf_cmpt)
+}
+
+tmp_F = tmp %>% filter(scorer_id %in% c("F","H","I"))
+
+samples_F = unique(tmp_F$study_id)
+n_samples_F = length(samples_F)
+# samples_K = tmp %>% filter(scorer_id %in% c("K","L","M","N"))
+
+scorers_F = unique(tmp_F$scorer_id)
+n_scorers_F = length(scorers_F)
+
+cmpt_F <- data.frame()
+for(i in 1:n_samples_F){
+  
+  files = tmp_F[tmp_F$study_id == samples_F[i],]
+  n_files = nrow(files)
+
+  df_cmpt <- data.frame()
+  
+  for(j in 1:n_files){
+    data <- read_xlsx(paste0("../ti_scoring_data/Completed Scores/", files$file[j]), skip = 3, col_names = TRUE)
+    data <- data[, 1:(grep("END", names(data))[1]-1)]
+    data_cmpt <- data[2, -1]
+    rownames(data_cmpt) = files$scorer_id[j]
+    colnames(data_cmpt) = paste0(files$study_id[j], "_", colnames(data_cmpt))
+    
+    df_cmpt <- rbind(df_cmpt, data_cmpt)
+  }
+  
+  tdf_cmpt <- transpose(df_cmpt)
+  rownames(tdf_cmpt) <- colnames(df_cmpt)
+  colnames(tdf_cmpt) <- rownames(df_cmpt)
+  
+  cmpt_F <- rbind(cmpt_F, tdf_cmpt)
+}
+
+
+tmp_K = tmp %>% filter(scorer_id %in% c("K","L","M","N"))
+
+samples_K = unique(tmp_K$study_id)
+n_samples_K = length(samples_K)
+
+scorers_K = unique(tmp_K$scorer_id)
+n_scorers_K = length(scorers_K)
+
+cmpt_K <- data.frame()
+for(i in 1:n_samples_K){
+  
+  files = tmp_K[tmp_K$study_id == samples_K[i],]
+  n_Kiles = nrow(files)
+
+  df_cmpt <- data.frame()
+  
+  for(j in 1:n_Kiles){
+    data <- read_xlsx(paste0("../ti_scoring_data/Completed Scores/", files$file[j]), skip = 3, col_names = TRUE)
+    data <- data[, 1:(grep("END", names(data))[1]-1)]
+    data_cmpt <- data[2, -1]
+    rownames(data_cmpt) = files$scorer_id[j]
+    colnames(data_cmpt) = paste0(files$study_id[j], "_", colnames(data_cmpt))
+    
+    df_cmpt <- rbind(df_cmpt, data_cmpt)
+  }
+  
+  tdf_cmpt <- transpose(df_cmpt)
+  rownames(tdf_cmpt) <- colnames(df_cmpt)
+  colnames(tdf_cmpt) <- rownames(df_cmpt)
+  
+  cmpt_K <- rbind(cmpt_K, tdf_cmpt)
+}
+
+cmpt_A_tmp <- setNames(data.frame(matrix(ncol = n_scorers_F + n_scorers_K, nrow = nrow(cmpt_A))), c(scorers_F, scorers_K))
+rownames(cmpt_A_tmp) <- rownames(cmpt_A)
+
+cmpt_A_tmp <- cbind(cmpt_A, cmpt_A_tmp)
+
+cmpt_F_tmp <- setNames(data.frame(matrix(ncol = n_scorers_A + n_scorers_K, nrow = nrow(cmpt_F))), c(scorers_A, scorers_K))
+rownames(cmpt_F_tmp) <- rownames(cmpt_F)
+
+cmpt_F_tmp <- cbind(cmpt_F, cmpt_F_tmp)
+
+cmpt_K_tmp <- setNames(data.frame(matrix(ncol = n_scorers_A + n_scorers_F, nrow = nrow(cmpt_K))), c(scorers_A, scorers_F))
+rownames(cmpt_K_tmp) <- rownames(cmpt_K)
+
+cmpt_K_tmp <- cbind(cmpt_K, cmpt_K_tmp)
+
+cmpt <- rbind(cmpt_A_tmp, cmpt_F_tmp, cmpt_K_tmp)
+
+write.xlsx(cmpt, "../ti_scoring_data/cmpt.xlsx", rowNames = TRUE, keepNA = TRUE)
+```

@@ -1,10 +1,6 @@
 ---
-title: "Pilot 5: TI Descriptor Scoring Data Analysis"
 geometry: left = 1.3cm, right = 1.3cm, top = 1.5cm, bottom = 1.5cm
 output: pdf_document
-header-includes: 
-  \usepackage{float} \floatplacement{figure}{H} 
-  \newcommand{\beginsupplement}{\setcounter{table}{0}  \renewcommand{\thetable}{S\arabic{table}} \setcounter{figure}{0} \renewcommand{\thefigure}{S\arabic{figure}}}
 ---
 
 ```{r setup, include=FALSE}
@@ -26,10 +22,7 @@ options(digits = 4)
 rm(list=ls())
 ```
 
-![Received Descriptor Scoring for Pilot 5. Green is received, white is outstanding, and grey is not expected.](../ti_scoring_data/completed_scores.png)
-
 ```{r, include = FALSE}
-
 completed_scores <- list.files(path = "../ti_scoring_data/Completed Scores", pattern = "KPMP TI Descriptor Scoring")
 study_ids <- str_sub(completed_scores, 1, 8)
 scorer_ids <- str_sub(completed_scores, 43, 43)
@@ -67,7 +60,7 @@ for(i in 1:length(completed_scores)){
   data_scores$indiv_score <- rowMeans(data_scores[, -c(1:2)]) * 100
   domain_score$Score <- rowMeans(domain_score[, -1]) * 100
   total_score <- mean(total_prst) * 100
-  dvst_score <- sum(data_scores$indiv_score > 0)
+  dvst_score <- sum(data_scores$indiv_score > 0) # / nrow(data_scores) * 100
   
   tmp <- data.frame(
     
@@ -142,7 +135,6 @@ for(i in 1:length(completed_scores)){
   
 }
 
-
 idv <- df[, c(1:2, grep("^idv_", names(df)))]
 idv_prst <- aggregate(. ~ study_id, idv[,-1], function(x) ifelse(sum(x) >= 1, 1, 0))
 idv_prst <- apply(idv_prst[, -1], 2, function(x) sum(x>0))  
@@ -154,105 +146,6 @@ idv_prst <- data.frame(
 idv_prst$Descriptor <- factor(idv_prst$Descriptor, levels= idv_prst$Descriptor)
 
 prb_idv <- idv_prst %>% filter(n_smp_prst == 0)
-
-```
-
-9 samples were scored by 3 to 5 pathologists (Figure 1). For each sample there were a certain number of grid coordinates that varied across samples depending on the size of the specimen. Each patch is evaluated whether the grid can be scored, assigned a compartment by the grader, and then scored as present/absent on each of 42 descriptors covering 8 domains. For each sample this data yielded the following summary data variables:
-
-- Total Pathology Score: % of grid squares that have any abnormal pathology present (1 score per sample per scorer)
-- Domain specific scores: % of grid squares that have any abnormal pathology present in a given domain (8 scores per sample per scorer)
-- Individual descriptor scores: % of grid squares that have abnormal pathology of a given type (42 scores per sample per scorer)
-- Descriptor Diversity Score: % of different types of abnormalities present in any patch (1 score per sample per scorer)
-- Compartment Variable: cortex, medulla, or both (1 per patch per sample per scorer)
-
-When individual descriptor scores (per sample per scorer) were calculated, presence/absence scores of each feature of grid squares are treated as missing if they are marked as Not gradable depending on each scorer's decision.
-
-There are some descriptor features that no grader indicated presence in any grid of any sample: `r paste(idv_prst[idv_prst$n_smp_prst==0,"Descriptor"], collapse=", ")` (Table 1, Figure 2). For those descriptors we cannot evaluate agreement, as the features were never present in these samples.
-
-```{r echo=FALSE}
-idv_inf_fc <- df[, c("scorer_id", "study_id", "idv_inf_fc")]
-idv_inf_fc_df <- spread(idv_inf_fc, key = scorer_id, value = idv_inf_fc)
-
-rownames(idv_inf_fc_df) <- idv_inf_fc_df$study_id
-idv_inf_fc_df <- idv_inf_fc_df[, -1]
-
-kbl(idv_inf_fc_df, booktabs=T, align="c", caption = "An example of individual descriptor score - Foam cells", linesep = "") %>%
-  kable_styling(latex_options = c("hold_position"))
-```
-```{r echo=FALSE, fig.align='center', fig.cap='Number of samples that had each descriptor feature. A descriptor is counted as present for a sample if it was indicated as present in any grid by any reviewer. Solid blue horizontal lines separate descriptors into 8 annotated domains.', fig.height=7, out.width='95%'}
-ggplot(idv_prst, aes(x = Descriptor, y = n_smp_prst)) + 
-  geom_bar(stat = "identity", fill = "gray", color = "black") + coord_flip() + theme_bw() +
-  scale_y_continuous(name = "Number of Samples", breaks = c(0, 3, 6, 9), limits = c(0,9.3)) + scale_x_discrete(name = "Descriptor") +
-  theme(axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10)) +
-  geom_vline(xintercept = c(3.5, 17.5, 19.5, 22.5, 32.5, 34.5, 36.5), color = "blue", linetype = 1, size = 1) +
-  annotate("text", x = 3, y = 7.7 + 0.28, label = "Renal Tubular Atrophy", size = 3, color = "blue") +
-  annotate("text", x = 17, y = 6.6 + 0.2, label = "Tubular Cell Injury (other than atrophy)", size = 3, color = "blue") +
-  annotate("text", x = 19, y = 8.7 + 0.3, label = "Tubulitis", size = 3, color = "blue") +
-  annotate("text", x = 22, y = 6.5 + 0.25, label = "Abnormal Tubular Luminal Morphology", size = 3, color = "blue") +
-  annotate("text", x = 32, y = 8 + 0.28, label = "Intratubular Casts", size = 3, color = "blue") +
-  annotate("text", x = 33.1, y = 6.2 + 0.29, label = "Tubular Basement Membrane Morphology", size = 3, color = "blue") +
-  annotate("text", x = 36, y = 7.9 + 0.25, label = "Extracellular Matrix", size = 3, color = "blue") +
-  annotate("text", x = 42, y = 8.3 + 0.3, label = "Inflammation", size = 3, color = "blue")
-```
-
-\newpage
-
-For each % score described on page 1 (52 scores) we calculated an intraclass correlation coefficient (ICC). This statistic ranges from 0 to 1, with high values indicating good reproducibility across different pathologist scoring the same sample. To calculate these we used a two-way random effects model with each given score as the endpoint with subject and pathologist as random effects. The ICC was calculated as the ratio of between subject variation to total variation.
-
-Assuming that there is variance associated with subject effect ($r_i$) as well as grader effect ($c_j$), we fit the model:
-
-$$
-x_{ij} = \mu + r_i + c_j + e_{ij}
-$$
-where $\mu$ is the mean for all objects, $r_i$ is subject effect, $c_j$ is grader effect, and $e_{ij}$ is the residual effect. Two-way random effects ICC is defined as:
-
-$$
-ICC = \frac{\sigma_{r}^2}{\sigma_{r}^2 + (\sigma_{c}^2 + \sigma_{e}^2)} = \frac{\text{between subject variation}}{\text{total variation}}
-$$
-which also can be estimated using mean squares from ANOVA:
-
-$$
-ICC = \frac{MS_{R} - MS_{E}}{MS_{R} + (k-1)MS_{E} + \frac{k}{n}(MS_{C}-MS_{E})}
-$$
-\newpage
-
-```{r}
-## create data frame with row of samples and column of graders
-ttl <- df[, c("scorer_id", "study_id", "ttl")]
-ttl$study_id <- factor(ttl$study_id, levels = c("27-10089", "30-11033", "31-10063",
-                                                        "29-10012", "30-10125", "32-10296", 
-                                                        "28-10051", "29-10395", "34-10184"))
-
-ttl_df <- spread(ttl, key = scorer_id, value = ttl)
-rownames(ttl_df) <- ttl_df$study_id
-ttl_df <- ttl_df[,-1]
-
-kbl(ttl_df, booktabs=T, align="c", caption = "Total Pathology Score", linesep = "") %>%
-  kable_styling(latex_options = c("hold_position"))
-```
-
-```{r out.width='95%', fig.cap = "Total Pathology Score", fig.align='center', fig.height = 3.5}
-ttl$study_id <- fct_rev(ttl$study_id)
-
-ggplot(ttl, aes(x = study_id, y = ttl, color = scorer_id)) +
-  geom_point(size = 2) + coord_flip() +  
-  theme_bw() + xlab("Sample") + ylab("Total Pathology Score") + labs(color = "Scorer") +
-  geom_vline(xintercept = c(3.5, 6.5))
-```
-
-For example of Total Pathology Score (Table 2, Figure 3), it fits linear mixed effects model using the lmer function from lme4 with subject (id) and pathologist (items) as random effects.
-
-```{r echo = TRUE}
-## run the function ICC from the package psych and show summary of it
-# missing = FALSE: not to remove incomplete data since we have different raters for different samples
-ttl_rst <- ICC(ttl_df, missing = FALSE, alpha = .05) 
-ttl_rst$summary
-```
-
-And I picked ICC2 which is found as the above equation: $\frac{\sigma_{r}^2}{\sigma_{r}^2 + (\sigma_{c}^2 + \sigma_{e}^2)}= \frac{15.62^2}{15.62^2 + 9.38^2 + 10.91^2} = 0.541$
-
-```{r echo = TRUE}
-ttl_rst$results
 ```
 
 ```{r}
@@ -271,9 +164,7 @@ for(i in 3:54){
 }
 ```
 
-\newpage
-
-```{r include=FALSE}
+```{r, include=FALSE}
 df <- df %>%
   add_column(dvst = df$dvst, .before = "ttl")
 
@@ -333,6 +224,7 @@ ggplot(df_icc_idv, aes(x = Score, y = icc)) +
                   width=.2,                    # Width of the error bars
                   position=position_dodge(.9))
 ```
+\clearpage
 
 ```{r, fig.align='center', fig.cap='Estimated ICC of total pathology, domain specific, and descriptor diversity scores with 95\\% CI.', fig.height=5, out.width='95%'}
 ggplot(df_icc_others, aes(x = Score, y = icc)) + 
@@ -346,108 +238,7 @@ ggplot(df_icc_others, aes(x = Score, y = icc)) +
                   position=position_dodge(.9))
 ```
 
-```{r eval = FALSE, fig.align='center', fig.cap='Estimated ICC of each score with 95\\% CI. Marked NA for individual descriptor scroes when total variation is 0.', fig.height=9.5, out.width='95%'}
-ggplot(df_icc_lme, aes(x = Score, y = icc)) + 
-  geom_bar(stat = "identity", fill = "gray", color = "black") + coord_flip() + theme_bw() +
-  scale_y_continuous(name = "ICC", breaks = c(0, 0.25, 0.5, 0.75, 0.9)) + scale_x_discrete(name = "Score") +
-  theme(axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10)) +
-  geom_vline(xintercept = c(1.5, 2.5, 10.5, 12.5, 27.5, 29.5, 32.5, 42.5, 44.5, 46.5),
-             linetype = c(1, 1, 1, rep(3, 7))) +
-  annotate("text", x = c(27, 29, 34, 41, 51, 52), y = 0.03, label = "NA", size = 3) +
-  geom_hline(yintercept = c(0.5, 0.75, 0.9), linetype = 2, color = "red") +
-  geom_errorbar(aes(ymin=icc_lb, ymax=icc_ub),
-                  width=.2,                    # Width of the error bars
-                  position=position_dodge(.9))
-```
-
-\clearpage
-
-
-
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubulitis", fig.align='center', fig.height = 3.5}
-dm_tblt <- df[, c("scorer_id", "study_id", "dm_tblt")]
-dm_tblt$study_id <- factor(dm_tblt$study_id, levels = c("27-10089", "30-11033", "31-10063",
-                                                        "29-10012", "30-10125", "32-10296", 
-                                                        "28-10051", "29-10395", "34-10184"))
-dm_tblt_df <- spread(dm_tblt, key = scorer_id, value = dm_tblt)
-
-rownames(dm_tblt_df) <- dm_tblt_df$study_id
-dm_tblt_df <- dm_tblt_df[, -1]
-
-kbl(dm_tblt_df, booktabs=T, align="c", caption = "Domain specific score - Tubulitis", linesep = "") %>%
-  kable_styling(latex_options = c("hold_position"))
-
-dm_tblt$study_id <- fct_rev(dm_tblt$study_id)
-ggplot(dm_tblt, aes(x = study_id, y = dm_tblt, color = scorer_id)) +
-  geom_point(size = 2) + coord_flip() +  
-  theme_bw() + xlab("Sample") + ylab("Domain specific score - Tubulitis") + labs(color = "Scorer") +
-  geom_vline(xintercept = c(3.5, 6.5))
-
-```
-
-For example of one of Domain specific scores - Tubulitis, between subject (id) variance converges to 0, and the ICC does as well. Once between pathologist effects are accounted for, I assume there is very little variation across subjects.
-
-```{r echo = FALSE, warning = FALSE, message = FALSE}
-## create data frame with row of subjects and column of judges
-dm_tblt <- df[, c("scorer_id", "study_id", "dm_tblt")]
-dm_tblt_df <- spread(dm_tblt, key = scorer_id, value = dm_tblt)
-rownames(dm_tblt_df) <- dm_tblt_df$study_id
-dm_tblt_df <- dm_tblt_df[,-1]
-
-## run the function ICC from the package psych and show summary of it
-# missing = FALSE: not to remove incomplete data since we have different raters for different samples
-dm_tblt_rst <- ICC(dm_tblt_df, missing = FALSE, alpha = .05) 
-dm_tblt_rst$summary
-```
-
-We have 9 of such cases: `r df_icc_lme[df_icc_lme$icc == 0 & !(df_icc_lme$score_name %in% rownames(idv_prst[idv_prst$n_smp_prst == 0,])), "Score"]`.
-
-\newpage
-# Supplementary material {-}
-
-\beginsupplement
-
-As supplementary to analysis, we presented dot plots to display the distribution of each calculated score.
-
-```{r echo=FALSE, out.width='95%', fig.cap = "Descriptor Diversity Score", fig.align='center', fig.height = 3.5}
-dvst <- df[, c("scorer_id", "study_id", "dvst")]
-
-dvst$study_id <- factor(dvst$study_id, levels = c("27-10089", "30-11033", "31-10063",
-                                                  "29-10012", "30-10125", "32-10296", 
-                                                  "28-10051", "29-10395", "34-10184"))
-dvst_df <- spread(dvst, key = scorer_id, value = dvst)
-
-rownames(dvst_df) <- dvst_df$study_id
-dvst_df <- dvst_df[, -1]
-
-dvst$study_id <- fct_rev(dvst$study_id)
-ggplot(dvst, aes(x = study_id, y = dvst, color = scorer_id)) +
-  geom_point(size = 2) + coord_flip() +  
-  theme_bw() + xlab("Sample") + labs(color = "Scorer") +
-  geom_vline(xintercept = c(3.5, 6.5)) +
-  theme(axis.title.x = element_blank())
-```
-
-```{r echo=FALSE, out.width='95%', fig.cap = "Total Pathology Score", fig.align='center', fig.height = 3.5}
-ttl <- df[, c("scorer_id", "study_id", "ttl")]
-ttl$study_id <- factor(ttl$study_id, levels = c("27-10089", "30-11033", "31-10063",
-                                                  "29-10012", "30-10125", "32-10296", 
-                                                  "28-10051", "29-10395", "34-10184"))
-ttl_df <- spread(ttl, key = scorer_id, value = ttl)
-
-rownames(ttl_df) <- ttl_df$study_id
-ttl_df <- ttl_df[, -1]
-
-ttl$study_id <- fct_rev(ttl$study_id)
-ggplot(ttl, aes(x = study_id, y = ttl, color = scorer_id)) +
-  geom_point(size = 2) + coord_flip() +  
-  theme_bw() + xlab("Sample") + labs(color = "Scorer") +
-  geom_vline(xintercept = c(3.5, 6.5)) +
-  theme(axis.title.x = element_blank())
-```
-
-
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Renal Tubular Atrophy", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Renal Tubular Atrophy (\\%)", fig.align='center', fig.height = 3.5}
 dm_rta <- df[, c("scorer_id", "study_id", "dm_rta")]
 dm_rta$study_id <- factor(dm_rta$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -465,7 +256,7 @@ ggplot(dm_rta, aes(x = study_id, y = dm_rta, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubular Cell Injury (other than atrophy)", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubular Cell Injury (other than atrophy) (\\%)", fig.align='center', fig.height = 3.5}
 dm_tci <- df[, c("scorer_id", "study_id", "dm_tci")]
 dm_tci$study_id <- factor(dm_tci$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -483,7 +274,8 @@ ggplot(dm_tci, aes(x = study_id, y = dm_tci, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubulitis", fig.align='center', fig.height = 3.5}
+
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubulitis (\\%)", fig.align='center', fig.height = 3.5}
 dm_tblt <- df[, c("scorer_id", "study_id", "dm_tblt")]
 dm_tblt$study_id <- factor(dm_tblt$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -501,7 +293,7 @@ ggplot(dm_tblt, aes(x = study_id, y = dm_tblt, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Abnormal Tubular Luminal Morphology", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Abnormal Tubular Luminal Morphology (\\%)", fig.align='center', fig.height = 3.5}
 dm_atlm <- df[, c("scorer_id", "study_id", "dm_atlm")]
 dm_atlm$study_id <- factor(dm_atlm$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -519,7 +311,7 @@ ggplot(dm_atlm, aes(x = study_id, y = dm_atlm, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Intratubular Casts", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Intratubular Casts (\\%)", fig.align='center', fig.height = 3.5}
 dm_ic <- df[, c("scorer_id", "study_id", "dm_ic")]
 dm_ic$study_id <- factor(dm_ic$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -537,7 +329,7 @@ ggplot(dm_ic, aes(x = study_id, y = dm_ic, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubular Basement Membrane Morphology", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Tubular Basement Membrane Morphology (\\%)", fig.align='center', fig.height = 3.5}
 dm_tbmm <- df[, c("scorer_id", "study_id", "dm_tbmm")]
 dm_tbmm$study_id <- factor(dm_tbmm$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -555,7 +347,7 @@ ggplot(dm_tbmm, aes(x = study_id, y = dm_tbmm, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Extracellular matrix", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Extracellular matrix (\\%)", fig.align='center', fig.height = 3.5}
 dm_em <- df[, c("scorer_id", "study_id", "dm_em")]
 dm_em$study_id <- factor(dm_em$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -573,7 +365,7 @@ ggplot(dm_em, aes(x = study_id, y = dm_em, color = scorer_id)) +
   theme(axis.title.x = element_blank())
 ```
 
-```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Inflammation", fig.align='center', fig.height = 3.5}
+```{r echo=FALSE, out.width='95%', fig.cap = "Domain specific score - Inflammation (\\%)", fig.align='center', fig.height = 3.5}
 dm_inf <- df[, c("scorer_id", "study_id", "dm_inf")]
 dm_inf$study_id <- factor(dm_inf$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
@@ -590,3 +382,44 @@ ggplot(dm_inf, aes(x = study_id, y = dm_inf, color = scorer_id)) +
   geom_vline(xintercept = c(3.5, 6.5)) +
   theme(axis.title.x = element_blank())
 ```
+
+```{r echo=FALSE, out.width='95%', fig.cap = "Descriptor Diversity Score (0-42)", fig.align='center', fig.height = 3.5}
+dvst <- df[, c("scorer_id", "study_id", "dvst")]
+
+dvst <- dvst %>%
+  mutate(n_dvst = dvst * 42 / 100)
+
+dvst$study_id <- factor(dvst$study_id, levels = c("27-10089", "30-11033", "31-10063",
+                                                  "29-10012", "30-10125", "32-10296", 
+                                                  "28-10051", "29-10395", "34-10184"))
+dvst_df <- spread(dvst %>% select(-dvst), key = scorer_id, value = n_dvst)
+
+rownames(dvst_df) <- dvst_df$study_id
+dvst_df <- dvst_df[, -1]
+
+dvst$study_id <- fct_rev(dvst$study_id)
+ggplot(dvst, aes(x = study_id, y = dvst, color = scorer_id)) +
+  geom_point(size = 2) + coord_flip() +  
+  theme_bw() + xlab("Sample") + labs(color = "Scorer") +
+  geom_vline(xintercept = c(3.5, 6.5)) +
+  theme(axis.title.x = element_blank())
+```
+
+```{r echo=FALSE, out.width='95%', fig.cap = "Total Pathology Score (\\%)", fig.align='center', fig.height = 3.5}
+ttl <- df[, c("scorer_id", "study_id", "ttl")]
+ttl$study_id <- factor(ttl$study_id, levels = c("27-10089", "30-11033", "31-10063",
+                                                  "29-10012", "30-10125", "32-10296", 
+                                                  "28-10051", "29-10395", "34-10184"))
+ttl_df <- spread(ttl, key = scorer_id, value = ttl)
+
+rownames(ttl_df) <- ttl_df$study_id
+ttl_df <- ttl_df[, -1]
+
+ttl$study_id <- fct_rev(ttl$study_id)
+ggplot(ttl, aes(x = study_id, y = ttl, color = scorer_id)) +
+  geom_point(size = 2) + coord_flip() +  
+  theme_bw() + xlab("Sample") + labs(color = "Scorer") +
+  geom_vline(xintercept = c(3.5, 6.5)) +
+  theme(axis.title.x = element_blank())
+```
+
