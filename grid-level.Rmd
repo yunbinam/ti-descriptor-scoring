@@ -1,0 +1,386 @@
+---
+title: 'Pilot 5: TI Descriptor Scoring Grid Level Data Analysis'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(tidyverse)
+library(kableExtra)
+library(psych)
+library(irr)
+library(ggplot2)
+library(data.table)
+library(plyr)
+library(lme4)
+
+options(digits = 4)
+rm(list=ls())
+```
+
+
+```{r data, include = FALSE}
+completed_scores <- list.files(path = "../ti_scoring_data/Completed Scores", pattern = "KPMP TI Descriptor Scoring")
+study_ids <- str_sub(completed_scores, 1, 8)
+scorer_ids <- str_sub(completed_scores, 43, 43)
+scorer_ids <- str_replace(scorer_ids, ".xlsx", "")
+
+tmp <- data.frame(
+  file_id = completed_scores,
+  study_id = study_ids,
+  scorer_id = scorer_ids
+)
+
+df_grid = data.frame()
+
+for (i in 1:nrow(tmp)){
+  
+  data <- read_xlsx(paste0("../ti_scoring_data/Completed Scores/", completed_scores[i]), skip = 3, col_names = TRUE)
+  data <- data[, 1:(grep("END", names(data))[1]-1)]
+
+  data_scores <- data[c(1, 3:(nrow(data)-1)), ] 
+
+  data_scores <- data_scores %>%
+    filter(rowSums(is.na(data_scores)) != (ncol(data_scores) - 1))
+  data_scores[-1 , which(data_scores[1, ] == "No")] = NA
+  
+  n_grid = ncol(data_scores[, -1])
+  grid = paste0(study_ids[i], "_", "G", 1:n_grid)
+  
+  tmp_grid = data.frame(
+    
+    sample = rep(study_ids[i], n_grid),
+    grid = grid,
+    pathologist = rep(scorer_ids[i], n_grid),
+    rta_classic = as.integer(data_scores[2, -1]),
+    rta_thyroid = as.integer(data_scores[3, -1]),
+    rta_endo = as.integer(data_scores[4, -1]),
+    tci_csimpl = as.integer(data_scores[5, -1]),
+    tci_cslough = as.integer(data_scores[6, -1]),
+    tci_lossbb = as.integer(data_scores[7, -1]),
+    tci_cnecr = as.integer(data_scores[8, -1]),
+    tci_cappt = as.integer(data_scores[9, -1]),
+    tci_cdtch = as.integer(data_scores[10, -1]),
+    tci_tbmd = as.integer(data_scores[11, -1]),
+    tci_cmit = as.integer(data_scores[12, -1]),
+    tci_ccv = as.integer(data_scores[13, -1]),
+    tci_bac = as.integer(data_scores[14, -1]),
+    tci_chd = as.integer(data_scores[15, -1]),
+    tci_pd = as.integer(data_scores[16, -1]),
+    tci_nh = as.integer(data_scores[17, -1]),
+    tci_vcc = as.integer(data_scores[18, -1]),
+    tblt_lymph = as.integer(data_scores[19, -1]),
+    tblt_ntr = as.integer(data_scores[20, -1]),
+    atlm_ld = as.integer(data_scores[21, -1]),
+    atlm_mcc = as.integer(data_scores[22, -1]),
+    atlm_tc = as.integer(data_scores[23, -1]),
+    ic_rbc = as.integer(data_scores[24, -1]),
+    ic_cec = as.integer(data_scores[25, -1]),
+    ic_clc = as.integer(data_scores[26, -1]),
+    ic_cecc = as.integer(data_scores[27, -1]),
+    ic_athc = as.integer(data_scores[28, -1]),
+    ic_ahc = as.integer(data_scores[29, -1]),
+    ic_acc = as.integer(data_scores[30, -1]),
+    ic_pc = as.integer(data_scores[31, -1]),
+    ic_lcc = as.integer(data_scores[32, -1]),
+    ic_ric = as.integer(data_scores[33, -1]),
+    tbmm_tbmr = as.integer(data_scores[34, -1]),
+    tbmm_tbml = as.integer(data_scores[35, -1]),
+    em_if = as.integer(data_scores[36, -1]),
+    em_ie = as.integer(data_scores[37, -1]),
+    inf_lymp = as.integer(data_scores[38, -1]),
+    inf_plasma = as.integer(data_scores[39, -1]),
+    inf_eosin = as.integer(data_scores[40, -1]),
+    inf_neutr = as.integer(data_scores[41, -1]),
+    inf_granul = as.integer(data_scores[42, -1]),
+    inf_fc = as.integer(data_scores[43, -1])
+  )
+  
+  df_grid = rbind(df_grid, tmp_grid)
+  
+}
+```
+
+```{r}
+mod_lmer = lmer(rta_classic ~ 1 + (1|sample) + (1|grid), data = df_grid[, c(1:4)])
+mod_lmer
+```
+
+```{r, echo = FALSE}
+vc <- VarCorr(mod_lmer)
+MS_sample <- vc$sample[1, 1]
+MS_grid <- vc$grid[1, 1]
+MS_resid <- (attributes(vc)$sc)^2
+  
+MS.df <- data.frame(
+  variance = c(MS_sample, MS_grid, MS_resid, NA)
+  )
+
+rownames(MS.df) <- c("Sample", "Grid", "Residual", "Total")
+MS.df["Total",] <- sum(MS.df[1:3, 1])
+MS.df["Percent"] <- MS.df/MS.df["Total", 1]
+MS.df
+```
+
+```{r}
+MS.df
+1 - MS.df["Residual",1] / MS.df["Total",1]
+```
+
+```{r include=FALSE}
+icc_grid = data.frame()
+
+for(i in 4:ncol(df_grid)){
+  
+  mod_lmer = lmer(formula(paste0(names(df_grid)[i], "~ 1 + (1|sample) + (1|grid)")), data = df_grid[, c(1:3, i)], na.action = na.omit)
+  
+  vc <- VarCorr(mod_lmer)
+  MS_sample <- vc$sample[1, 1]
+  MS_grid <- vc$grid[1, 1]
+  MS_resid <- (attributes(vc)$sc)^2
+  
+  MS.df <- data.frame(
+  variance = c(MS_sample, MS_grid, MS_resid, NA)
+  )
+  
+  rownames(MS.df) <- c("Sample", "Grid", "Residual", "Total")
+  MS.df["Total",] <- sum(MS.df[1:3, 1])
+  MS.df["Percent"] <- round(MS.df/MS.df["Total", 1], 2)
+  
+  tmp = data.frame(
+    
+    descriptor = names(df_grid)[i],
+    icc_grid = 1 - MS.df["Residual",1] / MS.df["Total",1]
+    
+  )
+
+  icc_grid = rbind(icc_grid, tmp)
+  
+}
+
+icc_grid$Descriptor = data_scores[-1,]$`GRID COORDINATES`
+icc_grid$Descriptor = factor(icc_grid$Descriptor, levels=icc_grid$Descriptor)
+```
+
+```{r, fig.align='center', fig.cap='Estimated ICC of individual descriptor scoring at the grid level. Marked NA when the features were never present in any of 9 samples. (Part 1)', fig.height=8, out.width='98%'}
+ggplot(icc_grid, aes(x = Descriptor, y = icc_grid)) + 
+  geom_bar(stat = "identity", fill = "gray", color = "black") + coord_flip() + theme_bw() +
+  annotate("text", x = which(is.na(icc_grid$icc_grid)), y = -0.05, label = "NA", size = 3) +
+  geom_hline(yintercept = c(0.5, 0.75), linetype = 2, color = "red") +
+  scale_y_continuous(name = "ICC", breaks = c(0, 0.25, 0.5, 0.75)) + scale_x_discrete(name = "Descriptor") +
+  geom_vline(xintercept = c(3.5, 17.5, 19.5, 22.5, 32.5, 34.5, 36.5), color = "blue", linetype = 3, size = 1)
+
+```
+
+```{r, include = FALSE}
+completed_scores <- list.files(path = "../ti_scoring_data/Completed Scores", pattern = "KPMP TI Descriptor Scoring")
+study_ids <- str_sub(completed_scores, 1, 8)
+scorer_ids <- str_sub(completed_scores, 43, 43)
+scorer_ids <- str_replace(scorer_ids, ".xlsx", "")
+
+df <- data.frame()
+for(i in 1:length(completed_scores)){
+  
+  data <- read_xlsx(paste0("../ti_scoring_data/Completed Scores/", completed_scores[i]), skip = 3, col_names = TRUE)
+  data <- data[, 1:(grep("END", names(data))[1]-1)]
+
+  data_scores <- data[c(1, 3:(nrow(data)-1)), ] 
+
+  data_scores <- data_scores %>%
+    filter(rowSums(is.na(data_scores)) != (ncol(data_scores) - 1))
+  data_scores <- cbind(
+    data.frame(Domain = c("", rep("Renal Tubular Atrophy", 3), 
+                          rep("Tubular Cell Injury (other than atrophy)", 14), 
+                          rep("Tubulitis", 2),
+                          rep("Abnormal Tubular Luminal Morphology", 3),
+                          rep("Intratubular Casts", 10),
+                          rep("Tubular basement membrane Morphology", 2),
+                          rep("Extracellular matrix", 2),
+                          rep("Inflammation", 6))),
+    data_scores)
+  names(data_scores)[2] = "Descriptor"
+
+  c_ix = which(data_scores[1,] == "Yes")
+  data_scores = data_scores[-1, c(1:2, c_ix)]
+  data_scores[, -c(1:2)] <- apply(data_scores[, -c(1:2)], 2, function(x) as.integer(x))
+  
+  domain_score <- aggregate(. ~ Domain, data_scores[,-2], function(x) ifelse(sum(x) >= 1, 1, 0))
+  total_prst <- ifelse(apply(data_scores[,-c(1:2)], 2, sum) >= 1, 1, 0)
+
+  data_scores$indiv_score <- rowMeans(data_scores[, -c(1:2)]) * 100
+  domain_score$Score <- rowMeans(domain_score[, -1]) * 100
+  total_score <- mean(total_prst) * 100
+  dvst_score <- sum(data_scores$indiv_score > 0) # / nrow(data_scores) * 100
+  
+  tmp <- data.frame(
+    
+    scorer_id = scorer_ids[i],
+    study_id = study_ids[i],
+    
+    ttl = total_score,
+    
+    dm_rta = domain_score[domain_score$Domain == "Renal Tubular Atrophy", "Score", drop = TRUE],
+    dm_tci = domain_score[domain_score$Domain == "Tubular Cell Injury (other than atrophy)", "Score", drop = TRUE],
+    dm_tblt = domain_score[domain_score$Domain == "Tubulitis", "Score", drop = TRUE],
+    dm_atlm = domain_score[domain_score$Domain == "Abnormal Tubular Luminal Morphology", "Score", drop = TRUE],
+    dm_ic = domain_score[domain_score$Domain == "Intratubular Casts", "Score", drop = TRUE],
+    dm_tbmm = domain_score[domain_score$Domain == "Tubular basement membrane Morphology", "Score", drop = TRUE],
+    dm_em = domain_score[domain_score$Domain == "Extracellular matrix", "Score", drop = TRUE],
+    dm_inf = domain_score[domain_score$Domain == "Inflammation", "Score", drop = TRUE],
+    
+    idv_rta_classic = data_scores[data_scores$Descriptor == "Classic/Common-type", "indiv_score", drop = TRUE],
+    idv_rta_thyroid = data_scores[data_scores$Descriptor == "Thyroidization-type", "indiv_score", drop = TRUE],
+    idv_rta_endo = data_scores[data_scores$Descriptor == "Endocrine-type", "indiv_score", drop = TRUE],
+    
+    idv_tci_csimpl = data_scores[data_scores$Descriptor == "Cell Simplification", "indiv_score", drop = TRUE],
+    idv_tci_cslough = data_scores[data_scores$Descriptor == "Cell Sloughing", "indiv_score", drop = TRUE],
+    idv_tci_lossbb = data_scores[data_scores$Descriptor == "Loss of brush border", "indiv_score", drop = TRUE],
+    idv_tci_cnecr = data_scores[data_scores$Descriptor == "Cell necrosis", "indiv_score", drop = TRUE],
+    idv_tci_cappt = data_scores[data_scores$Descriptor == "Cell apoptosis", "indiv_score", drop = TRUE],
+    idv_tci_cdtch = data_scores[data_scores$Descriptor == "Cell detachment", "indiv_score", drop = TRUE],
+    idv_tci_tbmd = data_scores[data_scores$Descriptor == "TBM denudation", "indiv_score", drop = TRUE],
+    idv_tci_cmit = data_scores[data_scores$Descriptor == "Cell Mitosis", "indiv_score", drop = TRUE],
+    idv_tci_ccv = data_scores[data_scores$Descriptor == "Cell cytoplasmic vacuolization", "indiv_score", drop = TRUE],
+    idv_tci_bac = data_scores[data_scores$Descriptor == "Blebbing of apical cytoplasm", "indiv_score", drop = TRUE],
+    idv_tci_chd = data_scores[data_scores$Descriptor == "Cell hyaline droplets", "indiv_score", drop = TRUE],
+    idv_tci_pd = data_scores[data_scores$Descriptor == "Pigmented droplets", "indiv_score", drop = TRUE],
+    idv_tci_nh = data_scores[data_scores$Descriptor == "Nuclear Hyperchromasia", "indiv_score", drop = TRUE],
+    idv_tci_vcc = data_scores[data_scores$Descriptor == "Viral cytopathic changes", "indiv_score", drop = TRUE],
+    
+    idv_tblt_lymph = data_scores[data_scores$Descriptor == "Lymphocytic", "indiv_score", drop = TRUE],
+    idv_tblt_ntr = data_scores[data_scores$Descriptor == "Neutrophilic", "indiv_score", drop = TRUE],
+    
+    idv_atlm_ld = data_scores[data_scores$Descriptor == "Luminal dilation", "indiv_score", drop = TRUE],
+    idv_atlm_mcc = data_scores[data_scores$Descriptor == "Microcystic change", "indiv_score", drop = TRUE],
+    idv_atlm_tc = data_scores[data_scores$Descriptor == "Tubular cysts", "indiv_score", drop = TRUE],
+    
+    idv_ic_rbc = data_scores[data_scores$Descriptor == "RBCs", "indiv_score", drop = TRUE],
+    idv_ic_cec = data_scores[data_scores$Descriptor == "(Cellular) Erythrocyte casts", "indiv_score", drop = TRUE],
+    idv_ic_clc = data_scores[data_scores$Descriptor == "(Cellular) Leukocyte casts", "indiv_score", drop = TRUE],
+    idv_ic_cecc = data_scores[data_scores$Descriptor == "(Cellular) Epithelial cell casts", "indiv_score", drop = TRUE],
+    idv_ic_athc = data_scores[data_scores$Descriptor == "(Acellular) Tamm-Horsfall casts", "indiv_score", drop = TRUE],
+    idv_ic_ahc = data_scores[data_scores$Descriptor == "(Acellular) Hyaline casts", "indiv_score", drop = TRUE],
+    idv_ic_acc = data_scores[data_scores$Descriptor == "Acellular casts crystals", "indiv_score", drop = TRUE],
+    idv_ic_pc = data_scores[data_scores$Descriptor == "(Acellular) Pigmented casts", "indiv_score", drop = TRUE],
+    idv_ic_lcc = data_scores[data_scores$Descriptor == "(Acellular) Light-chain casts", "indiv_score", drop = TRUE],
+    idv_ic_ric = data_scores[data_scores$Descriptor == "Renal intratubular casts [NOS]", "indiv_score", drop = TRUE],
+    
+    idv_tbmm_tbmr = data_scores[data_scores$Descriptor == "Tubular Basement membrane rupture", "indiv_score", drop = TRUE],
+    idv_tbmm_tbml = data_scores[data_scores$Descriptor == "Tubular basement membrane lamellation", "indiv_score", drop = TRUE],
+    
+    idv_em_if = data_scores[data_scores$Descriptor == "Interstitial fibrosis", "indiv_score", drop = TRUE],
+    idv_em_ie = data_scores[data_scores$Descriptor == "Interstitial edema", "indiv_score", drop = TRUE],
+    
+    idv_inf_lymp = data_scores[data_scores$Descriptor == "Lymphocytes", "indiv_score", drop = TRUE],
+    idv_inf_plasma = data_scores[data_scores$Descriptor == "Plasma cells", "indiv_score", drop = TRUE],
+    idv_inf_eosin = data_scores[data_scores$Descriptor == "Eosinophils", "indiv_score", drop = TRUE],
+    idv_inf_neutr = data_scores[data_scores$Descriptor == "Neutrophils", "indiv_score", drop = TRUE],
+    idv_inf_granul = data_scores[data_scores$Descriptor == "Granulomas", "indiv_score", drop = TRUE],
+    idv_inf_fc = data_scores[data_scores$Descriptor == "Foam cells", "indiv_score", drop = TRUE],
+    
+    dvst = dvst_score
+      )
+  
+  df <- rbind(df, tmp)
+  
+}
+
+idv <- df[, c(1:2, grep("^idv_", names(df)))]
+idv_prst <- aggregate(. ~ study_id, idv[,-1], function(x) ifelse(sum(x) >= 1, 1, 0))
+idv_prst <- apply(idv_prst[, -1], 2, function(x) sum(x>0))  
+idv_prst <- data.frame(
+  Descriptor = data_scores$Descriptor, 
+  n_smp_prst = idv_prst 
+  )
+
+idv_prst$Descriptor <- factor(idv_prst$Descriptor, levels= idv_prst$Descriptor)
+
+prb_idv <- idv_prst %>% filter(n_smp_prst == 0)
+```
+
+```{r}
+df_score <- data.frame()
+
+for(i in 3:54){
+
+  score <- df[, c(1:2, i)]
+  score_df <- spread(score, key = scorer_id, value = names(score)[3])
+  
+  rownames(score_df) <- paste0(names(score)[3], score_df$study_id)
+  tmp <- score_df[, -1]
+  
+  df_score <- rbind(df_score, tmp)
+  
+}
+```
+
+```{r, include=FALSE}
+df <- df %>%
+  add_column(dvst = df$dvst, .before = "ttl")
+
+df_icc_lme <- data.frame()
+
+for(i in 3:54){
+
+  score <- df[, c(1:2, i)]
+  score_df <- spread(score, key = scorer_id, value = names(score)[3])
+  
+  rownames(score_df) <- score_df$study_id
+  score_df <- score_df[, -1]
+  
+  score_rst <- ICC(score_df, missing = FALSE, alpha = .05)$results
+  score_icc <- score_rst[score_rst$type == "ICC2", "ICC"]
+  score_lb <- score_rst[score_rst$type == "ICC2", "lower bound"]
+  score_ub <- score_rst[score_rst$type == "ICC2", "upper bound"]
+  
+  
+  tmp <- data.frame(
+    
+    score_name = names(score)[3],
+    icc = score_icc,
+    icc_lb = score_lb,
+    icc_ub = score_ub
+    
+  )
+  
+  df_icc_lme <- rbind(df_icc_lme, tmp)
+  
+}
+
+df_icc_lme <- df_icc_lme %>%
+  add_column(Score = c("Descriptor Diversity Score",
+                       "Total Pathology Score",
+                       unique(data_scores$Domain),
+                       unique(data_scores$Descriptor)), .after = "score_name")
+
+df_icc_lme$Score <- factor(df_icc_lme$Score, levels = df_icc_lme$Score)
+
+df_icc_idv <- df_icc_lme[11:52,]
+```
+
+```{r, fig.align='center', fig.cap='Estimated ICC of individual descriptor scoring at the grid level. Marked NA when the features were never present in any of 9 samples. (Part 1)', fig.height=10, out.width='98%'}
+icc_grid$icc_subject = df_icc_idv$icc
+icc_grid_long = icc_grid[,-1] %>% gather(Level, ICC, -c(Descriptor))
+icc_grid_long$Level = ifelse(icc_grid_long$Level == "icc_subject", "Subject level scores", "Grid level 1/0")
+
+ggplot(icc_grid_long, aes(x = Descriptor, y = ICC, fill = Level)) + 
+  geom_bar(stat = "identity", position = position_dodge(width = 0.5)) + coord_flip() + theme_bw() +
+  annotate("text", x = which(is.na(icc_grid$icc_grid)), y = -0.05, label = "NA", size = 3) +
+  geom_hline(yintercept = c(0.5, 0.75, 0.9), linetype = 2, color = "red") +
+  scale_y_continuous(name = "ICC", breaks = c(0, 0.25, 0.5, 0.75)) + scale_x_discrete(name = "Descriptor") +
+  geom_vline(xintercept = c(3.5, 17.5, 19.5, 22.5, 32.5, 34.5, 36.5), color = "blue", linetype = 3, size = 1) +
+  theme(legend.position="top")
+```
+
+```{r}
+icc_grid_df = icc_grid[, c("Descriptor", "icc_grid", "icc_subject")]
+icc_grid_df[, c(2:3)] = round(icc_grid_df[, c(2:3)], 2)
+icc_grid_df
+```

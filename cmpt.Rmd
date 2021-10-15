@@ -24,8 +24,6 @@ options(digits = 4)
 rm(list=ls())
 ```
 
-![Received Descriptor Scoring for Pilot 5. Green is received, white is outstanding, and grey is not expected.](../ti_scoring_data/completed_scores.png)
-
 ```{r, include = FALSE}
 completed_scores <- list.files(path = "../ti_scoring_data/Completed Scores", pattern = "KPMP TI Descriptor Scoring")
 study_ids <- str_sub(completed_scores, 1, 8)
@@ -168,5 +166,13 @@ cmpt_K_tmp <- cbind(cmpt_K, cmpt_K_tmp)
 
 cmpt <- rbind(cmpt_A_tmp, cmpt_F_tmp, cmpt_K_tmp)
 
-write.xlsx(cmpt, "../ti_scoring_data/cmpt.xlsx", rowNames = TRUE, keepNA = TRUE)
+# write.xlsx(cmpt, "../ti_scoring_data/cmpt.xlsx", rowNames = TRUE, keepNA = TRUE)
 ```
+
+```{r}
+ttl = apply(cmpt, 1, function(x) sum(!is.na(x)))
+cmpt_c = apply(cmpt, 1, function(x) sum(x == "C", na.rm = T))
+cmpt_m = apply(cmpt, 1, function(x) sum(x == "M", na.rm = T))
+cmpt_cm = apply(cmpt, 1, function(x) sum(x == "C/M", na.rm = T))
+```
+

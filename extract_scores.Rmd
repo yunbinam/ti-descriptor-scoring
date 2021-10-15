@@ -451,7 +451,9 @@ ggplot(ttl, aes(x = study_id, y = ttl, color = scorer_id)) +
 dm_rta <- df[, c("scorer_id", "study_id", "dm_rta")]
 dm_rta$study_id <- factor(dm_rta$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
-                                                  "28-10051", "29-10395", "34-10184"))
+                                                  "28-10051", "29-10395", "34-10184"), labels = c("Sample 1","Sample 2","Sample 3",
+                                                                                                  "Sample 4","Sample 5","Sample 6",
+                                                                                                  "Sample 7","Sample 8","Sample 9"))
 dm_rta_df <- spread(dm_rta, key = scorer_id, value = dm_rta)
 
 rownames(dm_rta_df) <- dm_rta_df$study_id
@@ -505,7 +507,9 @@ ggplot(dm_tblt, aes(x = study_id, y = dm_tblt, color = scorer_id)) +
 dm_atlm <- df[, c("scorer_id", "study_id", "dm_atlm")]
 dm_atlm$study_id <- factor(dm_atlm$study_id, levels = c("27-10089", "30-11033", "31-10063",
                                                   "29-10012", "30-10125", "32-10296", 
-                                                  "28-10051", "29-10395", "34-10184"))
+                                                  "28-10051", "29-10395", "34-10184"), labels = c("Sample 1","Sample 2","Sample 3",
+                                                                                                  "Sample 4","Sample 5","Sample 6",
+                                                                                                  "Sample 7","Sample 8","Sample 9"))
 dm_atlm_df <- spread(dm_atlm, key = scorer_id, value = dm_atlm)
 
 rownames(dm_atlm_df) <- dm_atlm_df$study_id
