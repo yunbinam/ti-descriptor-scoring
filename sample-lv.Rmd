@@ -322,6 +322,7 @@ ggplot(x5, aes(x = study_id, y = X5, color = scorer_id)) +
   theme(axis.title.y = element_blank()) +
   labs(title = very_prob_score$Score[1], subtitle = paste0("Domain: ", very_prob_score$Domain[1]))
 ```
+
 ```{r out.width='95%', fig.align='center', fig.height = 4}
 figure_list <- list()
 
@@ -354,6 +355,7 @@ figure_list[[5]]
 figure_list[[6]]
 figure_list[[7]]
 figure_list[[8]]
+# trellis.device(windows, height=6, width=10)
 ```
 
 <!-- ```{r} -->
